@@ -2,8 +2,6 @@ name: Build and Push Docker Images
 
 on:
   push:
-    branches:
-      - main
     tags:
       - "v*"
 
@@ -42,7 +40,7 @@ jobs:
           tags: |
             type=ref,event=tag
             type=sha,prefix=sha-,format=short
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest
 
       - name: Build and push
         uses: docker/build-push-action@v7
@@ -85,7 +83,7 @@ jobs:
           tags: |
             type=ref,event=tag
             type=sha,prefix=sha-,format=short
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest
 
       - name: Build and push
         uses: docker/build-push-action@v7
@@ -128,7 +126,7 @@ jobs:
           tags: |
             type=ref,event=tag
             type=sha,prefix=sha-,format=short
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest
 
       - name: Build and push
         uses: docker/build-push-action@v7
