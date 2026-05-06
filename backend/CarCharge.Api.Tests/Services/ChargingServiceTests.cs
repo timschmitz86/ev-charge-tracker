@@ -1,6 +1,7 @@
 using Xunit;
 using Moq;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using CarCharge.Api.Models;
 using CarCharge.Api.Services;
 
@@ -11,6 +12,7 @@ public class ChargingServiceTests : IDisposable
     private readonly string _testDataFile;
     private readonly IConfiguration _config;
     private readonly ChargingService _service;
+    private readonly Mock<ILogger<ChargingService>> _mockLogger;
 
     public ChargingServiceTests()
     {
@@ -21,7 +23,8 @@ public class ChargingServiceTests : IDisposable
                 { "DataFilePath", _testDataFile } 
             })
             .Build();
-        _service = new ChargingService(_config);
+        _mockLogger = new Mock<ILogger<ChargingService>>();
+        _service = new ChargingService(_config, _mockLogger.Object);
     }
 
     public void Dispose()
@@ -458,7 +461,8 @@ public class ChargingServiceTests : IDisposable
         _service.StartCharging(request);
 
         // Act: Create new service instance that loads from same file
-        var service2 = new ChargingService(_config);
+        var service2Logger = new Mock<ILogger<ChargingService>>();
+        var service2 = new ChargingService(_config, service2Logger.Object);
         var activeSession = service2.GetActiveSession();
 
         // Assert
@@ -476,7 +480,8 @@ public class ChargingServiceTests : IDisposable
         _service.FinishCharging(finishRequest);
 
         // Act: Reload service
-        var service2 = new ChargingService(_config);
+        var service2Logger = new Mock<ILogger<ChargingService>>();
+        var service2 = new ChargingService(_config, service2Logger.Object);
         var entries = service2.GetAll();
 
         // Assert
