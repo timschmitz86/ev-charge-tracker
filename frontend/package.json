@@ -15,7 +15,7 @@
   "dependencies": {
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "react-router-dom": "^7.14.2"
+    "react-router-dom": "^7.15.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -28,11 +28,6 @@
     "globals": "^17.6.0",
     "sharp": "^0.34.5",
     "vite": "^8.0.10",
-    "vite-plugin-pwa": "^1.2.0"
-  },
-  "overrides": {
-    "vite-plugin-pwa": {
-      "vite": "$vite"
-    }
+    "vite-plugin-pwa": "^1.3.0"
   }
 }
