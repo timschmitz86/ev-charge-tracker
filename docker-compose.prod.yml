@@ -1,0 +1,61 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: carcharge-backend
+    volumes:
+      - ./data:/app/data
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
+      - DataFilePath=${DATA_FILE_PATH:-/app/data/data.json}
+      - VehicleIntegration__Enabled=${VEHICLE_INTEGRATION_ENABLED:-true}
+      - VehicleIntegration__BaseUrl=${VEHICLE_INTEGRATION_BASE_URL:-http://vehicle-service:8100}
+    restart: unless-stopped
+    depends_on:
+      - vehicle-service
+    networks:
+      - carcharge-internal
+
+  vehicle-service:
+    build:
+      context: ./vehicle-service
+      dockerfile: Dockerfile
+    container_name: carcharge-vehicle-service
+    env_file:
+      - ${VEHICLE_SERVICE_ENV_FILE:-./vehicle-service/.env}
+    restart: unless-stopped
+    networks:
+      - carcharge-internal
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: carcharge-frontend
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - carcharge-internal
+      - traefik
+    labels:
+      - "traefik.enable=${TRAEFIK_ENABLE:-true}"
+      - "traefik.http.routers.carcharge.rule=Host(`${TRAEFIK_HOST:-example.com}`)"
+      - "traefik.http.routers.carcharge.entrypoints=${TRAEFIK_ENTRYPOINTS:-websecure}"
+      - "traefik.http.routers.carcharge.tls=${TRAEFIK_TLS:-true}"
+      - "traefik.http.routers.carcharge.service=carcharge"
+      - "traefik.http.services.carcharge.loadbalancer.server.port=80"
+      - "traefik.docker.network=${TRAEFIK_NETWORK:-traefik}"
+      - "traefik.http.routers.carcharge.middlewares=${TRAEFIK_MIDDLEWARES:-carcharge-headers@docker}"
+      - "traefik.http.middlewares.carcharge-headers.headers.customresponseheaders.Cache-Control=no-cache, no-store, must-revalidate, max-age=0"
+      - "traefik.http.middlewares.carcharge-headers.headers.customresponseheaders.Pragma=no-cache"
+      - "traefik.http.middlewares.carcharge-headers.headers.customresponseheaders.Expires=-1"
+      - "traefik.http.middlewares.carcharge-headers.headers.customresponseheaders.Vary=Accept-Encoding"
+      - "traefik.http.middlewares.carcharge-headers.headers.isdevelopment=false"
+
+networks:
+  carcharge-internal:
+    name: carcharge-internal
+  traefik:
+    external: true

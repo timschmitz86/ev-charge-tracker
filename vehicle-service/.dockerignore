@@ -1,0 +1,12 @@
+__pycache__
+*.pyc
+*.pyo
+.venv
+.env
+.env.*
+.git
+.gitignore
+*.md
+.vscode
+.DS_Store
+Dockerfile

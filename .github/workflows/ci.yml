@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Build backend
+        run: dotnet build backend/CarCharge.Api/CarCharge.Api.csproj --configuration Release
+      - name: Build backend tests
+        run: dotnet build backend/CarCharge.Api.Tests/CarCharge.Api.Tests.csproj --configuration Release
+      - name: Run backend tests
+        run: dotnet test backend/CarCharge.Api.Tests/CarCharge.Api.Tests.csproj --configuration Release --no-build
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend deps
+        run: npm ci
+        working-directory: frontend
+      - name: Lint frontend
+        run: npm run lint
+        working-directory: frontend
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend
+
+  vehicle-service:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install vehicle service deps
+        run: pip install -r vehicle-service/requirements.txt
+      - name: Install pytest
+        run: pip install pytest
+      - name: Run vehicle service tests
+        run: pytest vehicle-service/tests/

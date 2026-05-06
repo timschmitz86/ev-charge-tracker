@@ -1,0 +1,4 @@
+fastapi==0.135.2
+uvicorn[standard]==0.42.0
+myskoda>=2.9.1
+python-dotenv==1.2.2

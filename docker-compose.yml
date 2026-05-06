@@ -1,0 +1,51 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: carcharge-backend
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
+      - DataFilePath=${DATA_FILE_PATH:-/app/data/data.json}
+      # Vehicle integration — connects to vehicle-service for mileage data
+      - VehicleIntegration__Enabled=${VEHICLE_INTEGRATION_ENABLED:-true}
+      - VehicleIntegration__BaseUrl=${VEHICLE_INTEGRATION_BASE_URL:-http://vehicle-service:8100}
+    restart: unless-stopped
+    depends_on:
+      - vehicle-service
+    networks:
+      - carcharge-internal
+
+  vehicle-service:
+    build:
+      context: ./vehicle-service
+      dockerfile: Dockerfile
+    container_name: carcharge-vehicle-service
+    env_file:
+      - ${VEHICLE_SERVICE_ENV_FILE:-./vehicle-service/.env}
+    ports:
+      - "8100:8100"
+    restart: unless-stopped
+    networks:
+      - carcharge-internal
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: carcharge-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - carcharge-internal
+
+networks:
+  carcharge-internal:
+    name: carcharge-internal
