@@ -1,8 +1,6 @@
 services:
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: ghcr.io/timschmitz86/ev-charge-tracker-backend:${IMAGE_TAG:-latest}
     container_name: carcharge-backend
     volumes:
       - ./data:/app/data
@@ -18,9 +16,7 @@ services:
       - carcharge-internal
 
   vehicle-service:
-    build:
-      context: ./vehicle-service
-      dockerfile: Dockerfile
+    image: ghcr.io/timschmitz86/ev-charge-tracker-vehicle-service:${IMAGE_TAG:-latest}
     container_name: carcharge-vehicle-service
     env_file:
       - ${VEHICLE_SERVICE_ENV_FILE:-./vehicle-service/.env}
@@ -29,9 +25,7 @@ services:
       - carcharge-internal
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    image: ghcr.io/timschmitz86/ev-charge-tracker-frontend:${IMAGE_TAG:-latest}
     container_name: carcharge-frontend
     depends_on:
       - backend
