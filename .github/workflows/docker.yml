@@ -10,6 +10,12 @@ on:
   release:
     types:
       - published
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing release tag to (re)publish images for (e.g. v1.0.1)"
+        required: true
+        type: string
 
 env:
   REGISTRY: ghcr.io
@@ -18,7 +24,7 @@ env:
 jobs:
   build-smoke:
     name: Build Smoke (${{ matrix.service.name }})
-    if: github.event_name != 'release'
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -74,7 +80,7 @@ jobs:
 
   publish:
     name: Publish (${{ matrix.service.name }})
-    if: github.event_name == 'release'
+    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -93,7 +99,18 @@ jobs:
             context: ./vehicle-service
             image: vehicle-service
     steps:
+      - name: Resolve release tag
+        id: release_tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ inputs.release_tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "value=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          fi
+
       - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ steps.release_tag.outputs.value }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
@@ -114,7 +131,7 @@ jobs:
         with:
           images: ${{ env.IMAGE_PREFIX }}-${{ matrix.service.image }}
           tags: |
-            type=raw,value=${{ github.event.release.tag_name }}
+            type=raw,value=${{ steps.release_tag.outputs.value }}
             type=sha,prefix=sha-,format=short
             type=raw,value=latest
 
@@ -128,3 +145,43 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  publish-release-image-artifact:
+    name: Publish release image artifact
+    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Resolve release tag
+        id: release_tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ inputs.release_tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "value=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate image reference manifest
+        run: |
+          TAG=${{ steps.release_tag.outputs.value }}
+          cat > release-images.txt <<EOF
+          Docker images for ${TAG}
+
+          ghcr.io/${{ github.repository_owner }}/ev-charge-tracker-backend:${TAG}
+          ghcr.io/${{ github.repository_owner }}/ev-charge-tracker-frontend:${TAG}
+          ghcr.io/${{ github.repository_owner }}/ev-charge-tracker-vehicle-service:${TAG}
+
+          Also published with tags:
+          - latest
+          - sha-<commit-short>
+          EOF
+
+      - name: Ensure release exists and upload artifact
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG=${{ steps.release_tag.outputs.value }}
+          gh release view "$TAG" > /dev/null 2>&1 || gh release create "$TAG" --title "Release $TAG" --notes "Release created by docker publish workflow."
+          gh release upload "$TAG" release-images.txt --clobber
