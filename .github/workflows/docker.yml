@@ -54,7 +54,12 @@ jobs:
 
       - name: Run container smoke test
         run: |
-          docker run -d --name smoke-${{ matrix.service.name }} ev-charge-tracker/${{ matrix.service.image }}:smoke-${{ github.sha }}
+          EXTRA_ARGS=""
+          if [ "${{ matrix.service.name }}" = "frontend" ]; then
+            EXTRA_ARGS="--add-host backend:127.0.0.1"
+          fi
+
+          docker run -d $EXTRA_ARGS --name smoke-${{ matrix.service.name }} ev-charge-tracker/${{ matrix.service.image }}:smoke-${{ github.sha }}
           sleep 10
           if [ "$(docker inspect -f '{{.State.Running}}' smoke-${{ matrix.service.name }})" != "true" ]; then
             echo "Container failed to stay running for ${{ matrix.service.name }}"
