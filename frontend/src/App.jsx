@@ -634,6 +634,10 @@ function App() {
           <h2 style={{ margin: 0 }}>{t('app.configurationHeader')}</h2>
         </button>
 
+        {!configExpanded && (
+          <p style={{ margin: '0.5rem 0 0 0' }}>{t('app.currentCost')} <strong>{kwCost.toFixed(5)} €/kWh</strong></p>
+        )}
+
         {configExpanded && (
           <>
             <div className="config-block">
