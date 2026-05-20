@@ -1,12 +1,12 @@
 # ---- build stage: compile native wheels ----
-FROM python:3.14.0 AS builder
+FROM python:3.14.5 AS builder
 
 WORKDIR /build
 COPY requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # ---- runtime stage: slim image without gcc ----
-FROM python:3.14.0-slim
+FROM python:3.14.5-slim
 
 WORKDIR /app
 
