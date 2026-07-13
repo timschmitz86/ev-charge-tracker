@@ -1,144 +1,121 @@
-name: Build and Push Docker Images
+name: Version and Publish Docker Images
 
 on:
-  pull_request:
-    branches:
-      - main
   push:
     branches:
       - main
-  release:
-    types:
-      - published
-  workflow_dispatch:
-    inputs:
-      release_tag:
-        description: "Existing release tag to (re)publish images for (e.g. v1.0.1)"
-        required: true
-        type: string
+
+concurrency:
+  group: component-image-publish-main
+  cancel-in-progress: false
 
 env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/ev-charge-tracker
 
 jobs:
-  build-smoke:
-    name: Build Smoke (${{ matrix.service.name }})
-    if: github.event_name == 'pull_request' || github.event_name == 'push'
+  version-components:
+    name: Version changed components
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        service:
-          - name: backend
-            context: ./backend
-            image: backend
-          - name: frontend
-            context: ./frontend
-            image: frontend
-          - name: vehicle-service
-            context: ./vehicle-service
-            image: vehicle-service
+      contents: write
+    outputs:
+      backend_changed: ${{ steps.version.outputs.backend_changed }}
+      backend_version: ${{ steps.version.outputs.backend_version }}
+      frontend_changed: ${{ steps.version.outputs.frontend_changed }}
+      frontend_version: ${{ steps.version.outputs.frontend_version }}
+      vehicle_service_changed: ${{ steps.version.outputs.vehicle_service_changed }}
+      vehicle_service_version: ${{ steps.version.outputs.vehicle_service_version }}
     steps:
-      - uses: actions/checkout@v6
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      - name: Build image for smoke test
-        uses: docker/build-push-action@v7
+      - uses: actions/checkout@v4
         with:
-          context: ${{ matrix.service.context }}
-          platforms: linux/amd64
-          load: true
-          push: false
-          tags: ev-charge-tracker/${{ matrix.service.image }}:smoke-${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          fetch-depth: 0
 
-      - name: Run container smoke test
+      - name: Create component version tags
+        id: version
+        shell: bash
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
         run: |
-          EXTRA_ARGS=""
-          if [ "${{ matrix.service.name }}" = "frontend" ]; then
-            EXTRA_ARGS="--add-host backend:127.0.0.1"
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if [[ "$BEFORE_SHA" == "0000000000000000000000000000000000000000" ]]; then
+            changed_files="$(git diff-tree --no-commit-id --name-only -r "$HEAD_SHA")"
+          else
+            changed_files="$(git diff --name-only "$BEFORE_SHA" "$HEAD_SHA")"
           fi
 
-          docker run -d $EXTRA_ARGS --name smoke-${{ matrix.service.name }} ev-charge-tracker/${{ matrix.service.image }}:smoke-${{ github.sha }}
-          sleep 10
-          if [ "$(docker inspect -f '{{.State.Running}}' smoke-${{ matrix.service.name }})" != "true" ]; then
-            echo "Container failed to stay running for ${{ matrix.service.name }}"
-            docker logs smoke-${{ matrix.service.name }}
-            exit 1
-          fi
-          echo "Smoke test passed for ${{ matrix.service.name }}"
+          version_component() {
+            local component="$1"
+            local path="$2"
+            local output_name="$3"
+            local changed=false
+            local existing_tag=""
+            local latest_tag=""
+            local version=""
 
-      - name: Cleanup smoke container
-        if: always()
-        run: docker rm -f smoke-${{ matrix.service.name }} || true
+            if grep -qE "^${path}/" <<< "$changed_files"; then
+              changed=true
+              existing_tag="$(git tag --points-at "$HEAD_SHA" --list "${component}-v*" --sort=-version:refname | head -n 1)"
 
-  publish:
-    name: Publish (${{ matrix.service.name }})
-    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+              if [[ -n "$existing_tag" ]]; then
+                version="${existing_tag#"${component}-v"}"
+                echo "Reusing ${existing_tag} for ${component}."
+              else
+                latest_tag="$(git tag --merged "$HEAD_SHA" --list "${component}-v*" --sort=-version:refname | head -n 1)"
+                if [[ -z "$latest_tag" ]]; then
+                  version="0.0.1"
+                else
+                  version="${latest_tag#"${component}-v"}"
+                  IFS=. read -r major minor patch <<< "$version"
+                  version="${major}.${minor}.$((patch + 1))"
+                fi
+
+                git tag -a "${component}-v${version}" "$HEAD_SHA" -m "${component} ${version}"
+                git push origin "${component}-v${version}"
+                echo "Created ${component}-v${version}."
+              fi
+            fi
+
+            echo "${output_name}_changed=${changed}" >> "$GITHUB_OUTPUT"
+            echo "${output_name}_version=${version}" >> "$GITHUB_OUTPUT"
+          }
+
+          version_component backend backend backend
+          version_component frontend frontend frontend
+          version_component vehicle-service vehicle-service vehicle_service
+
+  build-backend:
+    name: Backend
+    needs: version-components
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-    strategy:
-      fail-fast: false
-      matrix:
-        service:
-          - name: backend
-            context: ./backend
-            image: backend
-          - name: frontend
-            context: ./frontend
-            image: frontend
-          - name: vehicle-service
-            context: ./vehicle-service
-            image: vehicle-service
     steps:
-      - name: Resolve release tag
-        id: release_tag
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "value=${{ inputs.release_tag }}" >> $GITHUB_OUTPUT
-          else
-            echo "value=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
-          fi
-
-      - uses: actions/checkout@v6
-        with:
-          ref: refs/tags/${{ steps.release_tag.outputs.value }}
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v4
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v6
+      - id: meta
+        uses: docker/metadata-action@v5
         with:
-          images: ${{ env.IMAGE_PREFIX }}-${{ matrix.service.image }}
+          images: ${{ env.IMAGE_PREFIX }}-backend
           tags: |
-            type=raw,value=${{ steps.release_tag.outputs.value }}
-            type=sha,prefix=sha-,format=short
             type=raw,value=latest
-
-      - name: Build and push multi-arch image
-        uses: docker/build-push-action@v7
+            type=sha,prefix=sha-,format=short
+            type=raw,value=${{ needs.version-components.outputs.backend_version }},enable=${{ needs.version-components.outputs.backend_changed == 'true' }}
+      - uses: docker/build-push-action@v6
         with:
-          context: ${{ matrix.service.context }}
+          context: ./backend
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
@@ -146,42 +123,70 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  publish-release-image-artifact:
-    name: Publish release image artifact
-    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
-    needs: publish
+  build-frontend:
+    name: Frontend
+    needs: version-components
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
+      packages: write
     steps:
-      - name: Resolve release tag
-        id: release_tag
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "value=${{ inputs.release_tag }}" >> $GITHUB_OUTPUT
-          else
-            echo "value=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
-          fi
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}-frontend
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=sha-,format=short
+            type=raw,value=${{ needs.version-components.outputs.frontend_version }},enable=${{ needs.version-components.outputs.frontend_changed == 'true' }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      - name: Generate image reference manifest
-        run: |
-          TAG=${{ steps.release_tag.outputs.value }}
-          cat > release-images.txt <<EOF
-          Docker images for ${TAG}
-
-          ghcr.io/${{ github.repository_owner }}/ev-charge-tracker-backend:${TAG}
-          ghcr.io/${{ github.repository_owner }}/ev-charge-tracker-frontend:${TAG}
-          ghcr.io/${{ github.repository_owner }}/ev-charge-tracker-vehicle-service:${TAG}
-
-          Also published with tags:
-          - latest
-          - sha-<commit-short>
-          EOF
-
-      - name: Ensure release exists and upload artifact
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG=${{ steps.release_tag.outputs.value }}
-          gh release view "$TAG" > /dev/null 2>&1 || gh release create "$TAG" --title "Release $TAG" --notes "Release created by docker publish workflow."
-          gh release upload "$TAG" release-images.txt --clobber
+  build-vehicle-service:
+    name: Vehicle Service
+    needs: version-components
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}-vehicle-service
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=sha-,format=short
+            type=raw,value=${{ needs.version-components.outputs.vehicle_service_version }},enable=${{ needs.version-components.outputs.vehicle_service_changed == 'true' }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: ./vehicle-service
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

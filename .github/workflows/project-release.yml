@@ -1,0 +1,132 @@
+name: Create Project Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Project SemVer version to release (for example, 1.2.0)
+        required: true
+        type: string
+
+concurrency:
+  group: project-release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Validate version and tag availability
+        id: validation
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Version must be SemVer X.Y.Z without a v prefix." >&2
+            exit 1
+          fi
+
+          tag="project-v${VERSION}"
+          if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null || git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null; then
+            echo "Tag ${tag} already exists." >&2
+            exit 1
+          fi
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate release notes
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ steps.validation.outputs.tag }}
+          REPOSITORY: ${{ github.repository }}
+          NOTES_FILE: ${{ runner.temp }}/project-release-notes.md
+        run: |
+          set -euo pipefail
+
+          previous_tag="$(git tag --merged HEAD --list 'project-v*' --sort=-version:refname | head -n 1)"
+          if [[ -n "$previous_tag" ]]; then
+            range="${previous_tag}..HEAD"
+            changes_since="${previous_tag}"
+          else
+            range="HEAD"
+            changes_since="the beginning of the repository"
+          fi
+
+          backend_changes="$(mktemp)"
+          frontend_changes="$(mktemp)"
+          vehicle_changes="$(mktemp)"
+          shared_changes="$(mktemp)"
+          trap 'rm -f "$backend_changes" "$frontend_changes" "$vehicle_changes" "$shared_changes"' EXIT
+
+          while IFS=$'\x1f' read -r sha subject; do
+            [[ -z "$sha" ]] && continue
+            paths="$(git show --format= --name-only --first-parent "$sha")"
+            category="shared"
+            if [[ -n "$paths" ]] && ! grep -qvE '^backend/' <<< "$paths" && grep -qE '^backend/' <<< "$paths"; then
+              category="backend"
+            elif [[ -n "$paths" ]] && ! grep -qvE '^frontend/' <<< "$paths" && grep -qE '^frontend/' <<< "$paths"; then
+              category="frontend"
+            elif [[ -n "$paths" ]] && ! grep -qvE '^vehicle-service/' <<< "$paths" && grep -qE '^vehicle-service/' <<< "$paths"; then
+              category="vehicle"
+            fi
+            printf '%s\n' "- [${subject}](https://github.com/${REPOSITORY}/commit/${sha})" >> "${category}_changes"
+          done < <(git log --reverse --format='%H%x1f%s' "$range")
+
+          component_version() {
+            local component="$1"
+            git tag --merged HEAD --list "${component}-v*" --sort=-version:refname | head -n 1 | sed "s/^${component}-v//"
+          }
+
+          component_section() {
+            local label="$1"
+            local component="$2"
+            local changes_file="$3"
+            local version
+            version="$(component_version "$component")"
+            [[ -n "$version" ]] || version="not yet versioned"
+            printf '## %s — `%s`\n\n' "$label" "$version"
+            if [[ -s "$changes_file" ]]; then
+              cat "$changes_file"
+            else
+              echo 'No changes since the previous project release.'
+            fi
+            echo
+          }
+
+          {
+            printf '# %s\n\n' "$RELEASE_TAG"
+            printf 'Changes since %s.\n\n' "$changes_since"
+            component_section 'Backend' backend "$backend_changes"
+            component_section 'Frontend' frontend "$frontend_changes"
+            component_section 'Vehicle service' vehicle-service "$vehicle_changes"
+            echo '## Shared or cross-component changes'
+            echo
+            if [[ -s "$shared_changes" ]]; then
+              cat "$shared_changes"
+            else
+              echo 'No shared or cross-component changes since the previous project release.'
+            fi
+          } > "$NOTES_FILE"
+
+      - name: Create project tag and GitHub Release
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ steps.validation.outputs.tag }}
+          NOTES_FILE: ${{ runner.temp }}/project-release-notes.md
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$RELEASE_TAG" -m "Project release ${RELEASE_TAG}"
+          git push origin "$RELEASE_TAG"
+          gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" --notes-file "$NOTES_FILE"

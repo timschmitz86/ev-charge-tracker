@@ -77,6 +77,18 @@ Services are exposed on:
 - Backend: `http://localhost:5000`
 - Vehicle service: `http://localhost:8100`
 
+## Container image versions and releases
+
+GitHub Actions publishes the backend, frontend, and vehicle-service images to GHCR on every push to `main`. Every image receives a mutable `latest` tag and an immutable `sha-<shortsha>` tag. When files inside a component directory change, that component also receives a SemVer patch tag and a matching Git tag:
+
+- `backend-vX.Y.Z`
+- `frontend-vX.Y.Z`
+- `vehicle-service-vX.Y.Z`
+
+Changes outside those component directories do not create a component version. Re-running a workflow for the same commit reuses its existing component version tag.
+
+To create a project release, run the **Create Project Release** GitHub Actions workflow and supply an explicit `X.Y.Z` version. It creates a `project-vX.Y.Z` Git tag and GitHub Release with a changelog since the previous project release, grouped by component and shared changes.
+
 ### Production (Traefik)
 
 `docker-compose.prod.yml` exposes the frontend through Traefik and keeps the backend and vehicle service off the public network.
@@ -630,5 +642,4 @@ If a conflict occurs during sync:
    - After sync, refresh main list
    - Confirm both start and stop entries appear
    - Check timestamps match offline operation times
-
 
