@@ -113,7 +113,7 @@ jobs:
             type=raw,value=latest
             type=sha,prefix=sha-,format=short
             type=raw,value=${{ needs.version-components.outputs.backend_version }},enable=${{ needs.version-components.outputs.backend_changed == 'true' }}
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: ./backend
           platforms: linux/amd64,linux/arm64
@@ -147,7 +147,7 @@ jobs:
             type=raw,value=latest
             type=sha,prefix=sha-,format=short
             type=raw,value=${{ needs.version-components.outputs.frontend_version }},enable=${{ needs.version-components.outputs.frontend_changed == 'true' }}
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: ./frontend
           platforms: linux/amd64,linux/arm64
@@ -181,7 +181,7 @@ jobs:
             type=raw,value=latest
             type=sha,prefix=sha-,format=short
             type=raw,value=${{ needs.version-components.outputs.vehicle_service_version }},enable=${{ needs.version-components.outputs.vehicle_service_changed == 'true' }}
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: ./vehicle-service
           platforms: linux/amd64,linux/arm64
