@@ -1,4 +1,5 @@
 using System.Text.Json;
+using CarCharge.Api.Extensions;
 using CarCharge.Api.Interfaces;
 
 namespace CarCharge.Api.Services;
@@ -31,7 +32,7 @@ public class RemoteVehicleProvider : IVehicleDataProvider
 
             if (response.StatusCode == System.Net.HttpStatusCode.NoContent)
             {
-                _logger.LogInformation("Vehicle service returned no mileage data for {VehicleId}", vehicleId);
+                _logger.LogInformation("Vehicle service returned no mileage data for {VehicleId}", vehicleId.ToSafeString());
                 return null;
             }
 
@@ -42,7 +43,7 @@ public class RemoteVehicleProvider : IVehicleDataProvider
 
             if (result?.Mileage is not null)
             {
-                _logger.LogInformation("Retrieved mileage for {VehicleId}: {Mileage} km", vehicleId, result.Mileage);
+                _logger.LogInformation("Retrieved mileage for {VehicleId}: {Mileage} km", vehicleId.ToSafeString(), result.Mileage);
                 return result.Mileage;
             }
 
@@ -50,7 +51,7 @@ public class RemoteVehicleProvider : IVehicleDataProvider
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to retrieve mileage for {VehicleId} from vehicle service", vehicleId);
+            _logger.LogWarning(ex, "Failed to retrieve mileage for {VehicleId} from vehicle service", vehicleId.ToSafeString());
             return null;
         }
     }

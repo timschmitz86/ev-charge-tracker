@@ -1,4 +1,5 @@
 using System.Text.Json;
+using CarCharge.Api.Extensions;
 using CarCharge.Api.Models;
 
 namespace CarCharge.Api.Services;
@@ -27,7 +28,7 @@ public class ChargingService
     {
         if (!File.Exists(_filePath))
         {
-            _logger.LogInformation("Data file not found at '{FilePath}', starting with empty data", _filePath);
+            _logger.LogInformation("Data file not found at '{FilePath}', starting with empty data", _filePath.ToSafeString());
             _data = new ChargingData();
             Save();
             return;
@@ -35,7 +36,7 @@ public class ChargingService
 
         var json = File.ReadAllText(_filePath);
         _data = JsonSerializer.Deserialize<ChargingData>(json, JsonOptions) ?? new ChargingData();
-        _logger.LogInformation("Loaded {Count} charging entries from '{FilePath}'", _data.Entries.Count, _filePath);
+        _logger.LogInformation("Loaded {Count} charging entries from '{FilePath}'", _data.Entries.Count, _filePath.ToSafeString());
     }
 
     private void Save()
