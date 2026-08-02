@@ -150,6 +150,60 @@ test('expands charging history and shows saved sessions', async ({ page }) => {
   await expect(page.getByText(/View Details/i)).toBeVisible()
 })
 
+test('filters exported entries from charging history when requested', async ({ page }) => {
+  await buildChargingApiMock(page, {
+    entries: [
+      {
+        id: 'unexported-entry',
+        createdAt: '2024-01-02T10:30:00.000Z',
+        kmStand: 45260,
+        meterStart: 1250.00,
+        meterEnd: 1262.00,
+        chargedKwh: 12.00,
+        exported: false,
+        kwCostAtTime: 0.3
+      },
+      {
+        id: 'exported-entry',
+        createdAt: '2024-01-01T10:30:00.000Z',
+        kmStand: 45250,
+        meterStart: 1234.56,
+        meterEnd: 1250.00,
+        chargedKwh: 15.44,
+        exported: true,
+        kwCostAtTime: 0.3
+      }
+    ]
+  })
+
+  await page.addInitScript(() => {
+    window.localStorage.setItem('historyExpanded', 'true')
+    window.localStorage.setItem('showExportedEntries', 'true')
+  })
+  await page.goto('/')
+
+  const showExportedEntries = page.getByRole('checkbox', { name: /Exported entries/i })
+  const historyItems = page.locator('.session-item')
+
+  await expect(showExportedEntries).toBeChecked()
+  await expect(historyItems).toHaveCount(2)
+  await expect(page.getByText(/45260 km/i)).toBeVisible()
+  await expect(page.getByText(/45250 km/i)).toBeVisible()
+
+  await showExportedEntries.uncheck()
+
+  await expect(showExportedEntries).not.toBeChecked()
+  await expect(historyItems).toHaveCount(1)
+  await expect(page.getByText(/45260 km/i)).toBeVisible()
+  await expect(page.getByText(/45250 km/i)).toBeHidden()
+
+  await showExportedEntries.check()
+
+  await expect(showExportedEntries).toBeChecked()
+  await expect(historyItems).toHaveCount(2)
+  await expect(page.getByText(/45250 km/i)).toBeVisible()
+})
+
 test('updates the cost and switches the interface language from configuration', async ({ page }) => {
   await buildChargingApiMock(page)
   await page.addInitScript(() => {

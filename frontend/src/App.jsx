@@ -45,8 +45,16 @@ function App() {
     return stored ? JSON.parse(stored) : false
   })
   const [historyLoading, setHistoryLoading] = useState(false)
+  const [showExportedEntries, setShowExportedEntries] = useState(() => {
+    const stored = localStorage.getItem('showExportedEntries')
+    return stored ? JSON.parse(stored) : true
+  })
 
   const [loading, setLoading] = useState(false)
+
+  const visibleEntries = showExportedEntries
+    ? entries
+    : entries.filter((entry) => !entry.exported)
 
   const streamRef = useRef(null)
   const trackRef = useRef(null)
@@ -192,6 +200,10 @@ function App() {
   useEffect(() => {
     localStorage.setItem('historyExpanded', JSON.stringify(historyExpanded))
   }, [historyExpanded])
+
+  useEffect(() => {
+    localStorage.setItem('showExportedEntries', JSON.stringify(showExportedEntries))
+  }, [showExportedEntries])
 
   // Persist configExpanded state to localStorage
   useEffect(() => {
@@ -712,9 +724,19 @@ function App() {
             <h2 style={{ margin: 0 }}>{t('app.historyHeader')}</h2>
           </button>
           {historyExpanded && (
-            <button onClick={handleExportCSV} disabled={loading || historyLoading || entries.length === 0 || entries.every((entry) => entry.exported)} style={{ width: 'auto' }}>
-              {loading || historyLoading ? t('app.exporting') : t('app.exportCsv')}
-            </button>
+            <div className="history-actions">
+              <label className="show-exported-toggle">
+                <input
+                  type="checkbox"
+                  checked={showExportedEntries}
+                  onChange={(event) => setShowExportedEntries(event.target.checked)}
+                />
+                {t('app.showExportedEntries')}
+              </label>
+              <button onClick={handleExportCSV} disabled={loading || historyLoading || entries.length === 0 || entries.every((entry) => entry.exported)} style={{ width: 'auto' }}>
+                {loading || historyLoading ? t('app.exporting') : t('app.exportCsv')}
+              </button>
+            </div>
           )}
         </div>
 
@@ -725,11 +747,11 @@ function App() {
                 <div className="spinner"></div>
                 <p>{t('app.loadingHistory')}</p>
               </div>
-            ) : entries.length === 0 ? (
+            ) : visibleEntries.length === 0 ? (
               <p className="empty">{t('app.noHistory')}</p>
             ) : (
               <ul className="session-list">
-                {entries.map((entry) => (
+                {visibleEntries.map((entry) => (
                   <li key={entry.id} className={`session-item${entry.exported ? ' exported' : ''}`}>
                     <div className="date">
                       {formatDate(entry.createdAt)}
