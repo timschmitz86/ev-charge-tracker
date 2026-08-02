@@ -178,15 +178,15 @@ function App() {
 
   const loadData = async (includeHistory = false) => {
     try {
+      const data = await fetchAll()
+      setActiveSession(data.activeSession || null)
+      setKwCost(data.kwCost || 0.30)
+      if (data.entries && data.entries.length > 0) {
+        setLastMeterEnd(data.entries[0].meterEnd.toString())
+      }
+
       if (includeHistory) {
-        await loadHistory()
-      } else {
-        // Only load cost when not loading history
-        const data = await fetchAll()
-        setKwCost(data.kwCost || 0.30)
-        if (data.entries && data.entries.length > 0) {
-          setLastMeterEnd(data.entries[0].meterEnd.toString())
-        }
+        setEntries(data.entries || [])
       }
     } catch (err) {
       setError(err.message)
@@ -275,6 +275,12 @@ function App() {
       setKmStand('')
       setMeterStart('')
       setMileageAutoFilled(false)
+      setActiveSession(result && !result._offline ? {
+        id: result.id,
+        createdAt: result.createdAt || new Date().toISOString(),
+        meterStart: parseFloat(meterStart),
+        kmStand: parseInt(kmStand, 10)
+      } : null)
       if (historyExpanded) {
         await loadHistory()
       } else {
@@ -307,6 +313,7 @@ function App() {
         setTimeout(() => setSyncStatus(''), 3000)
       }
       setMeterEnd('')
+      setActiveSession(null)
       if (historyExpanded) {
         await loadHistory()
       } else {
