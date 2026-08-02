@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router'
 import { fetchAll, updateEntry, deleteEntry, markExported, unmarkExported } from './api'
 import { useLanguage } from './i18n/useLanguage'
 
