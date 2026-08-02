@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { fetchAll, startCharging, finishCharging, updateCost, fetchVehicleMileage, markExported, isCurrentlyOnline, getOfflineStats, syncOfflineOperations } from './api'
 import { useLanguage } from './i18n/useLanguage'
 
