@@ -25,6 +25,24 @@ Output is generated in `dist/`.
 npm run lint
 ```
 
+## End-to-end tests with Playwright
+
+The frontend now includes a Playwright smoke test to verify that the app loads and renders its main UI.
+
+### Run the tests locally
+
+```bash
+npm run test:e2e
+```
+
+The test runner starts the Vite dev server automatically, opens the app in Chromium, and checks that the main headings render.
+
+### What is covered
+
+- Home page loads successfully
+- Main charging UI is visible
+- Key sections such as “Start Charging” and “Finish Charging” appear
+
 For full setup and environment variables, see the main [README.md](../README.md).
 
 ## Flashlight Toggle (Finish Charging)
