@@ -144,12 +144,7 @@ function App() {
     try {
       const result = await syncOfflineOperations()
       setSyncStatus(t('app.syncComplete', { synced: result.synced, failed: result.failed }))
-      // Only load history if it's expanded
-      if (historyExpanded) {
-        await loadHistory()
-      } else {
-        await loadData(false)
-      }
+      await loadData({ includeHistory: historyExpanded })
       setTimeout(() => setSyncStatus(''), 3000)
     } catch (err) {
       setSyncStatus(t('app.syncFailed', { message: err.message }))
@@ -159,47 +154,39 @@ function App() {
     }
   }
 
-  const loadHistory = async () => {
-    setHistoryLoading(true)
+  const loadData = async ({ includeHistory = false, showHistoryLoading = false } = {}) => {
+    if (showHistoryLoading) {
+      setHistoryLoading(true)
+    }
+
     try {
       const data = await fetchAll()
-      setEntries(data.entries || [])
+      const entries = data.entries || []
+
       setActiveSession(data.activeSession || null)
       setKwCost(data.kwCost || 0.30)
-      if (data.entries && data.entries.length > 0) {
-        setLastMeterEnd(data.entries[0].meterEnd.toString())
+
+      if (entries.length > 0) {
+        setLastMeterEnd(entries[0].meterEnd.toString())
+      } else {
+        setLastMeterEnd('')
+      }
+
+      if (includeHistory) {
+        setEntries(entries)
       }
     } catch (err) {
       setError(err.message)
     } finally {
-      setHistoryLoading(false)
-    }
-  }
-
-  const loadData = async (includeHistory = false) => {
-    try {
-      const data = await fetchAll()
-      setActiveSession(data.activeSession || null)
-      setKwCost(data.kwCost || 0.30)
-      if (data.entries && data.entries.length > 0) {
-        setLastMeterEnd(data.entries[0].meterEnd.toString())
+      if (showHistoryLoading) {
+        setHistoryLoading(false)
       }
-
-      if (includeHistory) {
-        setEntries(data.entries || [])
-      }
-    } catch (err) {
-      setError(err.message)
     }
   }
 
   useEffect(() => {
-    if (historyExpanded) {
-      loadHistory()
-    } else {
-      loadData(false)
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    loadData({ includeHistory: historyExpanded, showHistoryLoading: historyExpanded })
+  }, [historyExpanded])
 
   // Persist historyExpanded state to localStorage
   useEffect(() => {
@@ -281,11 +268,7 @@ function App() {
         meterStart: parseFloat(meterStart),
         kmStand: parseInt(kmStand, 10)
       } : null)
-      if (historyExpanded) {
-        await loadHistory()
-      } else {
-        await loadData(false)
-      }
+      await loadData({ includeHistory: historyExpanded, showHistoryLoading: historyExpanded })
       await updateOfflineStats()
     } catch (err) {
       setError(err.message)
@@ -314,11 +297,7 @@ function App() {
       }
       setMeterEnd('')
       setActiveSession(null)
-      if (historyExpanded) {
-        await loadHistory()
-      } else {
-        await loadData(false)
-      }
+      await loadData({ includeHistory: historyExpanded, showHistoryLoading: historyExpanded })
       await updateOfflineStats()
     } catch (err) {
       setError(err.message)
@@ -463,11 +442,7 @@ function App() {
       setError('')
       try {
         await markExported(unexported.map((entry) => entry.id))
-        if (historyExpanded) {
-          await loadHistory()
-        } else {
-          await loadData(false)
-        }
+        await loadData({ includeHistory: historyExpanded, showHistoryLoading: historyExpanded })
       } catch (err) {
         setError(err.message)
       } finally {
@@ -718,7 +693,7 @@ function App() {
               const newState = !historyExpanded
               setHistoryExpanded(newState)
               if (newState && entries.length === 0) {
-                loadHistory()
+                loadData({ includeHistory: true, showHistoryLoading: true })
               }
             }}
             className="collapse-btn"

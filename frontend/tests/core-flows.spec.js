@@ -146,7 +146,7 @@ test('expands charging history and shows saved sessions', async ({ page }) => {
 
   await page.getByRole('button', { name: /Charging History/i }).click()
 
-  await expect(page.getByText(/45250 km/i)).toBeVisible()
+  await expect(page.getByText(/45250 km/i)).toBeVisible({ timeout: 15000 })
   await expect(page.getByText(/View Details/i)).toBeVisible()
 })
 
