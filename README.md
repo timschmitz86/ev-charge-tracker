@@ -41,6 +41,10 @@ npm run dev
 
 The frontend dev server starts on `http://localhost:5173` and proxies API calls to `http://localhost:5000`.
 
+### Frontend testing
+
+A Playwright smoke test is included for the frontend to verify that the app still loads and renders its main charging UI in a browser environment.
+
 ## Docker Compose
 
 **Prerequisites:** Docker and Docker Compose v2.
