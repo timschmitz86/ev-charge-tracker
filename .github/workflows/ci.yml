@@ -43,9 +43,27 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
         working-directory: frontend
+      - name: Start frontend preview server
+        run: |
+          cd frontend
+          nohup npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/ev-charge-tracker-preview.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:4173 >/dev/null 2>&1; then
+              echo "Frontend preview server is ready"
+              break
+            fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:4173 >/dev/null
+        env:
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:4173
+          PLAYWRIGHT_SKIP_WEBSERVER: "1"
       - name: Run frontend Playwright tests
         run: npm run test:e2e
         working-directory: frontend
+        env:
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:4173
+          PLAYWRIGHT_SKIP_WEBSERVER: "1"
 
   vehicle-service:
     runs-on: ubuntu-latest
