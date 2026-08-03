@@ -560,6 +560,47 @@ button:disabled {
   padding-bottom: 0;
 }
 
+.history-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.show-exported-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  padding: 0.5rem 0.65rem;
+  margin: 0;
+  white-space: nowrap;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  background: #fff;
+  border: 1px solid #b8c7d6;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.show-exported-toggle:hover {
+  border-color: #0066cc;
+}
+
+.show-exported-toggle input {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0;
+  accent-color: #0066cc;
+  cursor: pointer;
+}
+
+.show-exported-toggle:has(input:focus-visible) {
+  border-color: #0066cc;
+  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.2);
+}
+
 /* Loading spinner */
 .loading-spinner {
   display: flex;
@@ -608,5 +649,9 @@ button:disabled {
   .config-row {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .history-actions {
+    gap: 0.5rem;
   }
 }
