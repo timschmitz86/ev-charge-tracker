@@ -24,7 +24,14 @@ updates:
 
   # Backend (.NET / NuGet)
   - package-ecosystem: "nuget"
-    directory: "/backend"
+    directory: "/backend/CarCharge.Api"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "backend"
+  - package-ecosystem: "nuget"
+    directory: "/backend/CarCharge.Api.Tests"
     schedule:
       interval: "weekly"
     labels:
