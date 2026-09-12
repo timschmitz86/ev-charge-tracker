@@ -16,8 +16,26 @@ builder.Services.AddSingleton<ChargingService>();
 // Vehicle integration — optional, config-driven
 var vehicleConfig = builder.Configuration.GetSection(VehicleIntegrationOptions.SectionName)
     .Get<VehicleIntegrationOptions>() ?? new VehicleIntegrationOptions();
+builder.Services.Configure<VehicleIntegrationOptions>(
+    builder.Configuration.GetSection(VehicleIntegrationOptions.SectionName));
 
-if (vehicleConfig.Enabled)
+if (!vehicleConfig.Enabled || string.Equals(vehicleConfig.Provider, "dummy", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddSingleton<IVehicleDataProvider, DummyVehicleProvider>();
+}
+else if (string.Equals(vehicleConfig.Provider, "skoda_connect", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddHttpClient<IVehicleDataProvider, SkodaConnectVehicleProvider>(client =>
+    {
+        client.BaseAddress = new Uri(vehicleConfig.SkodaConnectBaseUrl);
+        client.Timeout = TimeSpan.FromSeconds(15);
+    })
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+    {
+        UseProxy = false
+    });
+}
+else
 {
     builder.Services.AddHttpClient<IVehicleDataProvider, RemoteVehicleProvider>(client =>
     {
@@ -29,11 +47,6 @@ if (vehicleConfig.Enabled)
         UseProxy = false
     });
 }
-else
-{
-    builder.Services.AddSingleton<IVehicleDataProvider, DummyVehicleProvider>();
-}
-
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>

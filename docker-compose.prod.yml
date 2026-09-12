@@ -8,7 +8,11 @@ services:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
       - DataFilePath=${DATA_FILE_PATH:-/app/data/data.json}
       - VehicleIntegration__Enabled=${VEHICLE_INTEGRATION_ENABLED:-true}
+      - VehicleIntegration__Provider=${VEHICLE_INTEGRATION_PROVIDER:-remote}
       - VehicleIntegration__BaseUrl=${VEHICLE_INTEGRATION_BASE_URL:-http://vehicle-service:8100}
+      - VehicleIntegration__SkodaConnectBaseUrl=${SKODA_CONNECT_BASE_URL:-https://public.api.connect.skoda-auto.cz}
+      - VehicleIntegration__SkodaConnectApiKey=${SKODA_CONNECT_API_KEY:-}
+      - VehicleIntegration__SkodaConnectVin=${SKODA_CONNECT_VIN:-}
     restart: unless-stopped
     depends_on:
       - vehicle-service
