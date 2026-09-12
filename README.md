@@ -63,7 +63,7 @@ A Playwright smoke test is included for the frontend to verify that the app stil
    cp env.sample .env
    ```
 
-3. Set up the vehicle service env file (required even if you don't use vehicle integration):
+3. If using the remote vehicle-service provider, set up its env file:
 
    ```bash
    cp vehicle-service/.env.example vehicle-service/.env
@@ -142,7 +142,11 @@ Copy `env.sample` to `.env` in the repo root and adjust values:
 | `ASPNETCORE_ENVIRONMENT` | ASP.NET environment | `Production` |
 | `DATA_FILE_PATH` | Backend JSON data file path | `/app/data/data.json` |
 | `VEHICLE_INTEGRATION_ENABLED` | Enable vehicle integration | `true` |
+| `VEHICLE_INTEGRATION_PROVIDER` | Vehicle provider (`remote`, `dummy`, or `skoda_connect`) | `remote` |
 | `VEHICLE_INTEGRATION_BASE_URL` | Vehicle service base URL | `http://vehicle-service:8100` |
+| `SKODA_CONNECT_BASE_URL` | Škoda Connect API base URL | `https://public.api.connect.skoda-auto.cz` |
+| `SKODA_CONNECT_API_KEY` | Škoda Connect API key (when using `skoda_connect`) | - |
+| `SKODA_CONNECT_VIN` | VIN covered by the Škoda Connect API key | - |
 | `VEHICLE_SERVICE_ENV_FILE` | Path to vehicle service env file | `./vehicle-service/.env` |
 | `TRAEFIK_ENABLE` | Enable Traefik labels (prod compose) | `true` |
 | `TRAEFIK_HOST` | Public hostname for Traefik router | `example.com` |
@@ -406,7 +410,11 @@ Costs are exported with **5 decimal places** for precision.
 
 ## Vehicle Mileage Integration (Optional)
 
-The application supports automatic retrieval of your vehicle's current mileage to pre-fill the "Car Mileage" field when starting a new charging session. This feature is **disabled by default** and requires a separate Python microservice.
+The application supports automatic retrieval of your vehicle's current mileage to pre-fill the "Car Mileage" field when starting a new charging session. Configure the provider with `VEHICLE_INTEGRATION_PROVIDER`:
+
+- `remote` calls the separate Python `vehicle-service` (the default).
+- `skoda_connect` calls the Škoda Connect Public API directly from the backend.
+- `dummy` disables mileage retrieval while leaving the integration enabled.
 
 ### Architecture
 
@@ -426,6 +434,21 @@ The vehicle-service is a provider-based abstraction layer that supports multiple
 
 ### How to Enable
 
+#### Direct Škoda Connect provider
+
+The backend can call the Škoda Connect Public API directly. Create an API key in the MyŠkoda app and configure the root `.env` file:
+
+```env
+VEHICLE_INTEGRATION_ENABLED=true
+VEHICLE_INTEGRATION_PROVIDER=skoda_connect
+SKODA_CONNECT_API_KEY=your-api-key
+SKODA_CONNECT_VIN=TMBJB9NY1RF123456
+```
+
+The provider requests only odometer data, retries rate-limit and transient server errors, and does not log the API key or full VIN. See [the detailed Škoda Connect guide](backend/CarCharge.Api/Docs/skoda_connect.md) for API behavior and production secret guidance.
+
+#### Remote vehicle-service provider
+
 **1. Create the vehicle-service `.env` file:**
 
 ```bash
@@ -442,12 +465,13 @@ VEHICLE_VIN=TMBJB9NY1RF123456
 VEHICLE_MAP=car1=TMBJB9NY1RF123456
 ```
 
-**2. Enable vehicle integration in the backend:**
+**2. Select the remote provider in the backend:**
 
 In `.env`, set:
 
 ```env
 VEHICLE_INTEGRATION_ENABLED=true
+VEHICLE_INTEGRATION_PROVIDER=remote
 ```
 
 **3. Start with Docker Compose:**
@@ -458,7 +482,7 @@ docker compose up --build
 
 ### How to Disable
 
-Set `VehicleIntegration__Enabled=false` (the default). The vehicle-service container will still start but the backend will not call it. The system behaves exactly as before — no breaking changes.
+Set `VEHICLE_INTEGRATION_ENABLED=false` or `VEHICLE_INTEGRATION_PROVIDER=dummy` to disable mileage retrieval. The vehicle-service container may still start under Docker Compose, but the backend will not call it.
 
 ### Vehicle Service API
 
@@ -476,10 +500,9 @@ Set `VehicleIntegration__Enabled=false` (the default). The vehicle-service conta
 
 ### Security
 
-- Vehicle credentials are **only** stored in `vehicle-service/.env`
-- The .NET backend never handles manufacturer credentials
-- Token refresh is managed inside the vehicle-service
-- The `.env` file must not be committed to version control
+- For `remote`, vehicle credentials are stored only in `vehicle-service/.env`; the .NET backend does not handle manufacturer credentials.
+- For `skoda_connect`, store `SKODA_CONNECT_API_KEY` in Docker secrets, host environment variables, or GitHub secrets; never commit it.
+- The `.env` files must not be committed to version control.
 
 ## PWA
 
@@ -646,4 +669,3 @@ If a conflict occurs during sync:
    - After sync, refresh main list
    - Confirm both start and stop entries appear
    - Check timestamps match offline operation times
-
