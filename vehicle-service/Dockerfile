@@ -6,7 +6,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # ---- runtime stage: slim image without gcc ----
-FROM python:3.14.7-slim
+FROM python:3.14.8-slim
 
 WORKDIR /app
 
