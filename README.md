@@ -14,12 +14,12 @@ Optionally, it can fetch your vehicle's current mileage from manufacturer APIs (
 ## Stack
 
 - **Frontend**: React + Vite + React Router v6 + PWA
-- **Backend**: .NET 10 Web API
+- **Backend**: .NET 11 Web API
 - **Storage**: JSON file (`./data/data.json` via bind mount in docker-compose)
 
 ## Prerequisites
 
-- [.NET 10 SDK](https://dotnet.microsoft.com/download)
+- [.NET 11 SDK](https://dotnet.microsoft.com/download)
 - [Node.js 18+](https://nodejs.org/)
 
 ## Running the Backend
@@ -419,7 +419,7 @@ The application supports automatic retrieval of your vehicle's current mileage t
 ### Architecture
 
 ```
-/backend          → .NET 10 Web API (existing)
+/backend          → .NET 11 Web API (existing)
 /vehicle-service  → Python FastAPI (new, optional)
 /frontend         → React + Vite (existing)
 ```
@@ -636,7 +636,7 @@ If a conflict occurs during sync:
 - `api.js` - Offline-aware fetch wrappers for start/finish endpoints
 - App.jsx - Offline state monitoring and sync trigger logic
 
-**Backend (.NET 10):**
+**Backend (.NET 11):**
 - `SessionConflictException` - Explicit conflict detection
 - `StartChargingRequest.ClientSessionId` - Idempotency key (UUID)
 - `FinishChargingRequest.ClientSessionId` + `AllowUnknownSession` - Flexible finish handling
